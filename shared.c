@@ -286,7 +286,12 @@ gchar **squash_get_matching_files(sqfs *fs, char *pattern, gchar *desktop_icon_v
                 if(inode.base.inode_type == SQUASHFS_REG_TYPE) {
                     if(g_str_has_prefix(trv.path, "usr/share/icons/") || g_str_has_prefix(trv.path, "usr/share/pixmaps/") || (g_str_has_prefix(trv.path, "usr/share/mime/") && g_str_has_suffix(trv.path, ".xml"))){
                         dest_dirname = g_path_get_dirname(replace_str(trv.path, "usr/share", g_get_user_data_dir()));          
-                        dest_basename = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(trv.path));
+                        /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..] */
+                        if (g_pattern_match_simple("*/mimetypes/*", trv.path)) {
+                            dest_basename = g_strdup_printf("%s-%s-%s", g_path_get_basename(trv.path), vendorprefix, md5);     
+                        } else {
+                            dest_basename = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(trv.path));
+                        }
                         dest = g_build_path("/", dest_dirname, dest_basename, NULL);
                     }
                     /* According to https://specifications.freedesktop.org/icon-theme-spec/icon-theme-spec-latest.html#install_icons
@@ -451,8 +456,8 @@ void write_edited_desktop_file(GKeyFile *key_file_structure, char* appimage_path
         }
     }
     
-    gchar *icon_with_md5 = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(g_key_file_get_value(key_file_structure, "Desktop Entry", "Icon", NULL)));
-    g_key_file_set_value(key_file_structure, "Desktop Entry", "Icon", icon_with_md5);
+    gchar *icon_with_md5 = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(g_key_file_get_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "Icon", NULL)));
+    g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "Icon", icon_with_md5);
     /* At compile time, inject VERSION_NUMBER like this:
      * cc ... -DVERSION_NUMBER=\"$(git describe --tags --always --abbrev=7)\" -..
      */
@@ -460,11 +465,19 @@ void write_edited_desktop_file(GKeyFile *key_file_structure, char* appimage_path
     g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "X-AppImage-Comment", generated_by);
     g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "X-AppImage-Identifier", md5);
 
-    /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..] */
+    /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..]; */
     gchar *mime_type = g_key_file_get_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_MIME_TYPE, NULL);
-    if (mime_type != NULL) {
-        gchar *mime_type_with_md5 = g_strdup_printf("%s-%s-%s", mime_type, vendorprefix, md5);
-        g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_MIME_TYPE, *mime_type_with_md5); 
+    if (mime_type) {
+        gchar **parts = g_strsplit(mime_type, ";", 0);
+        gchar **part;
+        for (part = parts; *part; part++) {
+            //TODO: Parse between all delimiters e.g. application/x-foo=foo.desktop;bar.desktop;
+            gchar *mime_type_with_md5 = g_strdup_printf("%s-%s-%s;", *part, vendorprefix, md5);
+            g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_MIME_TYPE, mime_type_with_md5);
+            g_free(mime_type_with_md5);
+            break;
+        }
+        g_strfreev(parts);
     }
     
     fprintf(stderr, "Installing desktop file\n");
@@ -638,7 +651,7 @@ bool appimage_type1_register_in_system(char *path, gboolean verbose)
             gboolean success = g_key_file_load_from_data (key_file_structure, buff, size, G_KEY_FILE_KEEP_COMMENTS | G_KEY_FILE_KEEP_TRANSLATIONS, NULL);
             if(success){
                 gchar *desktop_filename = g_path_get_basename(filename);
-                desktop_icon_value_original = g_strdup_printf("%s", g_key_file_get_value(key_file_structure, "Desktop Entry", "Icon", NULL));
+                desktop_icon_value_original = g_strdup_printf("%s", g_key_file_get_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "Icon", NULL));
                 if(verbose)
                     fprintf(stderr, "desktop_icon_value_original: %s\n", desktop_icon_value_original);
                 write_edited_desktop_file(key_file_structure, path, desktop_filename, 1, md5, verbose);
@@ -654,7 +667,7 @@ bool appimage_type1_register_in_system(char *path, gboolean verbose)
         if(g_str_has_prefix(filename, "usr/share/icons/") || g_str_has_prefix(filename, "usr/share/pixmaps/") || (g_str_has_prefix(filename, "usr/share/mime/") && g_str_has_suffix(filename, ".xml"))){
             dest_dirname = g_path_get_dirname(replace_str(filename, "usr/share", g_get_user_data_dir()));          
             /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..] */
-            if (g_pattern_match_simple("/mimetypes/", filename)) {
+            if (g_pattern_match_simple("*/mimetypes/*", filename)) {
                 dest_basename = g_strdup_printf("%s-%s-%s", g_path_get_basename(filename), vendorprefix, md5);     
             } else {
                 dest_basename = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(filename));
@@ -763,7 +776,7 @@ bool appimage_type2_register_in_system(char *path, gboolean verbose)
         if(success){
             gchar *desktop_filename = g_path_get_basename(str_array[i]);
             
-            desktop_icon_value_original = g_strdup_printf("%s", g_key_file_get_value(key_file_structure, "Desktop Entry", "Icon", NULL));
+            desktop_icon_value_original = g_strdup_printf("%s", g_key_file_get_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "Icon", NULL));
             if(verbose)
                 fprintf(stderr, "desktop_icon_value_original: %s\n", desktop_icon_value_original);
             write_edited_desktop_file(key_file_structure, path, desktop_filename, 2, md5, verbose);
