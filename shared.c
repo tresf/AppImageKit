@@ -286,7 +286,7 @@ gchar **squash_get_matching_files(sqfs *fs, char *pattern, gchar *desktop_icon_v
                 if(inode.base.inode_type == SQUASHFS_REG_TYPE) {
                     if(g_str_has_prefix(trv.path, "usr/share/icons/") || g_str_has_prefix(trv.path, "usr/share/pixmaps/") || (g_str_has_prefix(trv.path, "usr/share/mime/") && g_str_has_suffix(trv.path, ".xml"))){
                         dest_dirname = g_path_get_dirname(replace_str(trv.path, "usr/share", g_get_user_data_dir()));          
-                        /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..] */
+                        /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimagekit-d41d8ef[..] */
                         if (g_pattern_match_simple("*/mimetypes/*", trv.path)) {
                             dest_basename = g_strdup_printf("%s-%s-%s", g_path_get_basename(trv.path), vendorprefix, md5);     
                         } else {
@@ -465,7 +465,7 @@ void write_edited_desktop_file(GKeyFile *key_file_structure, char* appimage_path
     g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "X-AppImage-Comment", generated_by);
     g_key_file_set_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, "X-AppImage-Identifier", md5);
 
-    /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..]; */
+    /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimagekit-d41d8ef[..]; */
     gchar *mime_type = g_key_file_get_value(key_file_structure, G_KEY_FILE_DESKTOP_GROUP, G_KEY_FILE_DESKTOP_KEY_MIME_TYPE, NULL);
     if (mime_type) {
         gchar **parts = g_strsplit(mime_type, ";", 0);
@@ -666,7 +666,7 @@ bool appimage_type1_register_in_system(char *path, gboolean verbose)
         
         if(g_str_has_prefix(filename, "usr/share/icons/") || g_str_has_prefix(filename, "usr/share/pixmaps/") || (g_str_has_prefix(filename, "usr/share/mime/") && g_str_has_suffix(filename, ".xml"))){
             dest_dirname = g_path_get_dirname(replace_str(filename, "usr/share", g_get_user_data_dir()));          
-            /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..] */
+            /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimagekit-d41d8ef[..] */
             if (g_pattern_match_simple("*/mimetypes/*", filename)) {
                 dest_basename = g_strdup_printf("%s-%s-%s", g_path_get_basename(filename), vendorprefix, md5);     
             } else {
