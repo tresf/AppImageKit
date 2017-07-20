@@ -57,7 +57,7 @@ cd "$HERE"
 
 # Install dependencies if enabled
 if [ $INSTALL_DEPENDENCIES -eq 1 ]; then
-   true ||  . ./install-build-deps.sh
+   . ./install-build-deps.sh
 fi
 
 # Fetch git submodules
