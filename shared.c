@@ -246,6 +246,49 @@ static gchar *get_file_extension(const gchar *filename)
     return extension;
 }
 
+/* Needed for MimeType GMarkupParser */
+void parse_mimetype_start(GMarkupParseContext *context, const gchar *element_name, const gchar **attribute_names, const gchar        **attribute_values, gpointer user_data, GError **error) {
+    const gchar **name_cursor = attribute_names;
+    const gchar **value_cursor = attribute_values;
+
+    if (strcmp(element_name, "mime-type") == 0) {
+        while (*name_cursor) {
+            if (strcmp(*name_cursor, "type") == 0) {
+                fprintf(stderr, "===> BEFORE: %s\n", *value_cursor);
+                // FIXME: Just for testing
+                fprintf(stderr, "===> AFTER: %s-%s-%s\n", *value_cursor, "vendor", "md5");
+            }
+
+            name_cursor++;
+            value_cursor++;
+        }
+    }
+}
+
+/* Needed for MimeType GMarkupParser */
+void parse_mimetype_end(GMarkupParseContext *context, const gchar *element_name, gpointer user_data, GError **error) {
+}
+
+/* Write a modified mimetype file to disk with corrected icon path */
+void write_edited_mimetype_file(gchar* mimetype_filename, char *md5){
+    //FIXME: Write modified XML file
+    // https://blogs.gnome.org/tthurman/2008/02/14/gmarkup/
+    char *text;
+    gsize length;
+
+    /* The list of what handler does what. */
+    GMarkupParser parser = { parse_mimetype_start, parse_mimetype_end, text, NULL, NULL };
+    
+    fprintf(stderr, "FIXME:  MimeType installation for %s has incorrect icon path\n", mimetype_filename);
+    // Ingest entire XML
+    GMarkupParseContext *context = g_markup_parse_context_new(&parser, 0, NULL, NULL);
+    if (g_file_get_contents(mimetype_filename, &text, &length, NULL)) {
+        g_markup_parse_context_parse(context, text, length, NULL);
+        //FIXME: Remove this
+        // fprintf(stderr, "RAW XML:\n%s", text);
+    }
+}
+
 /* Find files in the squashfs matching to the regex pattern. 
  * Returns a newly-allocated NULL-terminated array of strings.
  * Use g_strfreev() to free it. 
@@ -311,12 +354,6 @@ gchar **squash_get_matching_files(sqfs *fs, char *pattern, gchar *desktop_icon_v
                             fprintf(stderr, "install: %s\n", dest);
                         if(g_mkdir_with_parents(g_path_get_dirname(dest), 0755))
                             fprintf(stderr, "Could not create directory: %s\n", g_path_get_dirname(dest));
-
-                        //FIXME: Write modified XML file
-                        // https://blogs.gnome.org/tthurman/2008/02/14/gmarkup/
-                        if (g_str_has_prefix(trv.path, "usr/share/mime/") && g_str_has_suffix(trv.path, ".xml")) {
-                            fprintf(stderr, "FIXME:  MimeType installation for %s has incorrect icon path\n", dest_basename);
-                        }
                         
                         // Read the file in chunks
                         off_t bytes_already_read = 0;
@@ -336,6 +373,12 @@ gchar **squash_get_matching_files(sqfs *fs, char *pattern, gchar *desktop_icon_v
                             bytes_already_read = bytes_already_read + bytes_at_a_time;
                         }
                         fclose(f);
+
+                        /* MimeType icons have md5 appended, not prepended e.g. application-x-foo-appimagekit-d41d8ef[..].svg */
+                        if (g_str_has_prefix(trv.path, "usr/share/mime/") && g_str_has_suffix(trv.path, ".xml")) {
+                            write_edited_mimetype_file(dest, md5);
+                        }
+
                         chmod (dest, 0644);
                         
                         if(verbose)
