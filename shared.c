@@ -650,13 +650,14 @@ bool appimage_type1_register_in_system(char *path, gboolean verbose)
         gchar *dest_dirname = NULL;
         gchar *dest_basename = NULL;
         /* Get icon file(s) and act on them in one go */
+        
         if(g_str_has_prefix(filename, "usr/share/icons/") || g_str_has_prefix(filename, "usr/share/pixmaps/") || (g_str_has_prefix(filename, "usr/share/mime/") && g_str_has_suffix(filename, ".xml"))){
             dest_dirname = g_path_get_dirname(replace_str(filename, "usr/share", g_get_user_data_dir()));          
             /* MimeType must have md5 appended, not prepended e.g. application/x-foo-appimaged-d41d8ef[..] */
             if (g_pattern_match_simple("/mimetypes/", filename)) {
                 dest_basename = g_strdup_printf("%s-%s-%s", g_path_get_basename(filename), vendorprefix, md5);     
             } else {
-            	dest_basename = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(filename));
+                dest_basename = g_strdup_printf("%s_%s_%s", vendorprefix, md5, g_path_get_basename(filename));
             }
             dest = g_build_path("/", dest_dirname, dest_basename, NULL);
         }
