@@ -311,6 +311,12 @@ gchar **squash_get_matching_files(sqfs *fs, char *pattern, gchar *desktop_icon_v
                             fprintf(stderr, "install: %s\n", dest);
                         if(g_mkdir_with_parents(g_path_get_dirname(dest), 0755))
                             fprintf(stderr, "Could not create directory: %s\n", g_path_get_dirname(dest));
+
+                        //FIXME: Write modified XML file
+                        // https://blogs.gnome.org/tthurman/2008/02/14/gmarkup/
+                        if (g_str_has_prefix(trv.path, "usr/share/mime/") && g_str_has_suffix(trv.path, ".xml")) {
+                            fprintf(stderr, "FIXME:  MimeType installation for %s has incorrect icon path\n", dest_basename);
+                        }
                         
                         // Read the file in chunks
                         off_t bytes_already_read = 0;
@@ -695,6 +701,12 @@ bool appimage_type1_register_in_system(char *path, gboolean verbose)
             if(g_mkdir_with_parents(g_path_get_dirname(dest), 0755))
                 fprintf(stderr, "Could not create directory: %s\n", g_path_get_dirname(dest));
         
+            //FIXME: Write modified XML file
+            // https://blogs.gnome.org/tthurman/2008/02/14/gmarkup/
+            if (g_str_has_prefix(filename, "usr/share/mime/") && g_str_has_suffix(filename, ".xml")) {
+                fprintf(stderr, "FIXME:  MimeType installation for %s has incorrect icon path\n", dest_basename);
+            }
+            
             FILE *f;
             f = fopen(dest, "w+");
             
